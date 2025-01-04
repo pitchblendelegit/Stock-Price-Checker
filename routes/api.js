@@ -1,6 +1,6 @@
 "use strict";
-const axios = require('axios');
 const StockModel = require("../models").Stock;
+const fetch = require("node-fetch");
 
 async function createStock(stock, like, ip) {
   const newStock = new StockModel({
@@ -12,19 +12,18 @@ async function createStock(stock, like, ip) {
 }
 
 async function findStock(stock) {
-  return await StockModel.findOne({symbol: stock}).exec();
+  return await StockModel.findOne({ symbol: stock }).exec();
 }
 
 async function saveStock(stock, like, ip) {
   let saved = {};
   const foundStock = await findStock(stock);
-  if(!foundStock){
-    const createSaved = await createStock(stock, like, ip);
-    saved = createSaved;
+  if (!foundStock) {
+    const createsaved = await createStock(stock, like, ip);
+    saved = createsaved;
     return saved;
-  }
-  else{
-    if(like && foundStock.likes.indexOf(ip) === -1){
+  } else {
+    if (like && foundStock.likes.indexOf(ip) === -1) {
       foundStock.likes.push(ip);
     }
     saved = await foundStock.save();
@@ -33,65 +32,62 @@ async function saveStock(stock, like, ip) {
 }
 
 async function getStock(stock) {
-  try {
-    const response = await axios.get(
-      `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stock}/quote`
-    );
-    const { symbol, latestPrice } = response.data;
-    return { symbol, latestPrice };
-  } catch (error) {
-    console.error("Error fetching stock data:", error.message);
-    throw new Error("Failed to fetch stock data");
-  }
+  const response = await fetch(
+    `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stock}/quote`
+  );
+  const { symbol, latestPrice } = await response.json();
+  return { symbol, latestPrice };
 }
 
 module.exports = function (app) {
-  app.get('/api/stock-prices', async (req, res) => {
-    const {stock, like} = req.query;
-    if(Array.isArray(stock)){
+  //https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/TSLA/quote
+
+  app.route("/api/stock-prices").get(async function (req, res) {
+    const { stock, like } = req.query;
+    if (Array.isArray(stock)) {
       console.log("stocks", stock);
-      const {symbol: latestPrice} = await getStock(stock[0]);
-      const {symbol: symbol2, latestPrice: latestPrice2} = await getStock(
+
+      const { symbol, latestPrice } = await getStock(stock[0]);
+      const { symbol: symbol2, latestPrice: latestPrice2 } = await getStock(
         stock[1]
       );
+
       const firststock = await saveStock(stock[0], like, req.ip);
       const secondstock = await saveStock(stock[1], like, req.ip);
 
       let stockData = [];
-      if(!symbol){
+      if (!symbol) {
         stockData.push({
           rel_likes: firststock.likes.length - secondstock.likes.length,
         });
-      }
-      else{
+      } else {
         stockData.push({
           stock: symbol,
           price: latestPrice,
           rel_likes: firststock.likes.length - secondstock.likes.length,
         });
       }
-      if(!symbol2){
+
+      if (!symbol2) {
         stockData.push({
-          rel_likes: firststock.likes.length - secondstock.likes.length,
+          rel_likes: secondstock.likes.length - firststock.likes.length,
         });
-      }
-      else{
+      } else {
         stockData.push({
           stock: symbol2,
           price: latestPrice2,
-          rel_likes: firststock.likes.length - secondstock.likes.length,
+          rel_likes: secondstock.likes.length - firststock.likes.length,
         });
       }
+
       res.json({
         stockData,
       });
       return;
     }
-
-
-    const {symbol, latestPrice} = await getStock(stock);
-    if(!symbol){
-      res.json({stockData: {likes: like ? 1:0}});
+    const { symbol, latestPrice } = await getStock(stock);
+    if (!symbol) {
+      res.json({ stockData: { likes: like ? 1 : 0 } });
       return;
     }
 
