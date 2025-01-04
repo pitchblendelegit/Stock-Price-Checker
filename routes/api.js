@@ -34,16 +34,19 @@ async function saveStock(stock, like, ip) {
 
 async function getStock(stock) {
   try {
+    console.log(`Fetching data for stock: ${stock}`);
     const response = await axios.get(
       `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stock}/quote`
     );
+    console.log(`Received data for stock: ${response.data}`);
     const { symbol, latestPrice } = response.data;
     return { symbol, latestPrice };
   } catch (error) {
-    console.error("Error fetching stock data:", error.message);
+    console.error(`Error fetching stock data for ${stock}:`, error.message);
     throw new Error("Failed to fetch stock data");
   }
 }
+
 
 module.exports = function (app) {
   app.get('/api/stock-prices', async (req, res) => {
@@ -94,6 +97,7 @@ module.exports = function (app) {
       res.json({stockData: {likes: like ? 1:0}});
       return;
     }
+    
 
     const oneStockData = await saveStock(symbol, like, req.ip);
     console.log("One Stock Data", oneStockData);
